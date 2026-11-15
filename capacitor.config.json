@@ -1,0 +1,19 @@
+﻿{
+  "appId": "com.lexilearn.app",
+  "appName": "LexiLearn",
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#f7f5ff",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "backgroundColor": "#f7f5ff",
+      "style": "LIGHT"
+    },
+    "SQLite": {
+      "androidIsEncryption": false
+    }
+  }
+}
