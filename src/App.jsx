@@ -44,7 +44,7 @@ export default function App() {
   const [dailyWord, setDailyWord] = useState(initialWord);
   const [nameDraft, setNameDraft] = useState('Sarah Miller');
   const [settings, setSettings] = useState({ theme: 'light', fontSize: 17, fontFamily: 'system', highContrast: false, reduceMotion: false, brightness: 68, letterSpacing: 0, lineSpacing: 1.55 });
-  const [query, setQuery] = useState(''); const [searchOpen, setSearchOpen] = useState(false); const [selected, setSelected] = useState(null);
+  const [query, setQuery] = useState(''); const [searchOpen, setSearchOpen] = useState(false); const [searchBusy, setSearchBusy] = useState(false); const [selected, setSelected] = useState(null);
   const [busy, setBusy] = useState(false); const [notice, setNotice] = useState('');
   const [aiBusy, setAiBusy] = useState('');
   const [quiz, setQuiz] = useState(null); const [answer, setAnswer] = useState(''); const [quizFinished, setQuizFinished] = useState(false);
@@ -90,6 +90,33 @@ export default function App() {
     setWords(all); setFavorites(fav); setHistory(quizzes);
     setSettings((current) => ({ ...current, ...prefs }));
     if (typeof prefs.profileName === 'string' && prefs.profileName.trim()) setNameDraft(prefs.profileName);
+  }
+  async function lookupVocabulary() {
+    const requestedWord = query.trim();
+    if (!requestedWord || searchBusy) return;
+    const normalized = requestedWord.toLocaleLowerCase('en-US');
+    const existing = words.find((word) => word.word.trim().toLocaleLowerCase('en-US') === normalized) || await database.getWordByName(requestedWord);
+    if (existing) { setSelected(existing); setSearchOpen(false); return; }
+    if (!online) { setNotice('This word is not saved yet. Connect to the internet to look it up and add it.'); return; }
+    setSearchBusy(true);
+    try {
+      const health = await ai.getAIHealth();
+      if (!health.ok || !health.configured) throw new Error('Word lookup is unavailable. Connect to the configured AI service and try again.');
+      const result = await ai.lookupWord(requestedWord);
+      if (!result || typeof result.word !== 'string' || result.word.trim().toLocaleLowerCase('en-US') !== normalized || typeof result.definition !== 'string' || !result.definition.trim()) {
+        throw new Error(`Could not find “${requestedWord}”. Check the spelling and try again.`);
+      }
+      const saved = await database.saveWord(result);
+      await refresh();
+      setSearchOpen(false);
+      setQuery('');
+      setSelected(saved);
+      setNotice(`“${saved.word}” was added to your vocabulary.`);
+    } catch (error) {
+      setNotice(error.message || 'Could not look up that word. Please try again.');
+    } finally {
+      setSearchBusy(false);
+    }
   }
   async function ensureDailyWord() {
     if (dailyLoadRef.current) return dailyLoadRef.current;
@@ -249,8 +276,8 @@ export default function App() {
     <div className="content-wrap">
       {page === 'home' && <>
         <div className="welcome-row"><div><div className="eyebrow">{dateLabel()}</div><h1>Good morning, {profileName.trim().split(/\s+/)[0]} <span className="wave">✳</span></h1><p className="subheading">A little curiosity goes a long way. Ready to learn?</p></div><button onClick={() => startQuiz()} className="button button-primary" disabled={busy}><Sparkles size={17} />{busy ? 'Preparing…' : 'Quick practice'}</button></div>
-        <div className="search-box"><Search size={19} /><input ref={searchInputRef} placeholder="Search your vocabulary…" value={query} onChange={(e) => { setQuery(e.target.value); setSearchOpen(true); }} onFocus={() => setSearchOpen(true)} onKeyDown={(e) => e.key === 'Enter' && setPage('explore')} /><kbd>⌘ K</kbd>{searchOpen && query && <button className="clear-search" onClick={() => { setQuery(''); setSearchOpen(false); }}><X size={16} /></button>}</div>
-        {searchOpen && query && <div className="search-popover">{words.filter((w) => w.word.toLowerCase().includes(query.toLowerCase())).slice(0, 5).map((word) => <button key={word.id} onClick={() => { setSelected(word); setSearchOpen(false); }}><Search size={15} /><span><b>{word.word}</b><small>{word.definition}</small></span><ChevronRight size={16} /></button>)}{!words.some((w) => w.word.toLowerCase().includes(query.toLowerCase())) && <div className="no-results">No saved words match yet. Try generating a vocabulary set.</div>}</div>}
+        <div className="search-box"><Search size={19} /><input ref={searchInputRef} placeholder="Search your vocabulary…" value={query} onChange={(e) => { setQuery(e.target.value); setSearchOpen(true); }} onFocus={() => setSearchOpen(true)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); lookupVocabulary(); } }} /><kbd>⌘ K</kbd>{searchOpen && query && <button className="clear-search" onClick={() => { setQuery(''); setSearchOpen(false); }}><X size={16} /></button>}</div>
+        {searchOpen && query && <div className="search-popover">{words.filter((w) => w.word.toLowerCase().includes(query.toLowerCase())).slice(0, 5).map((word) => <button key={word.id} onClick={() => { setSelected(word); setSearchOpen(false); }}><Search size={15} /><span><b>{word.word}</b><small>{word.definition}</small></span><ChevronRight size={16} /></button>)}{!words.some((w) => w.word.toLowerCase().includes(query.toLowerCase())) && <div className="no-results">No saved words match yet.</div>}<button type="button" className="search-lookup" onMouseDown={(event) => event.preventDefault()} onClick={lookupVocabulary} disabled={searchBusy}>{searchBusy ? <LoaderCircle className="spin" size={15}/> : <Sparkles size={15}/>} {searchBusy ? 'Looking up?' : words.some((word) => word.word.trim().toLocaleLowerCase('en-US') === query.trim().toLocaleLowerCase('en-US')) ? 'Open saved word' : `Look up ?${query.trim()}? and add`}</button></div>}
         <section className="hero-word"><div className="hero-copy"><div className="section-kicker"><span className="sparkle-dot"><Sparkles size={13} /></span>YOUR DAILY WORD <span className="today-chip">TODAY</span></div><h2>{dailyWord.word}<span className="word-type">{dailyWord.partOfSpeech}</span></h2><div className="pronunciation">{dailyWord.pronunciation}<button title="Hear pronunciation" onClick={() => speak(dailyWord.word)}><Volume2 size={16} /></button></div><p>{dailyWord.definition}</p><div className="example"><span>IN A SENTENCE</span>“{dailyWord.examples?.[0] || 'A word for today.'}”</div><button className="text-link" onClick={() => setSelected(words.find((w) => w.word.toLowerCase() === dailyWord.word.toLowerCase()) || words[0] || dailyWord)}>Explore this word <ArrowRight size={15} /></button></div><div className="hero-illustration"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="word-bubble">Aa</div><span className="float-tag tag-top">a new perspective</span><span className="float-tag tag-bottom"><Sparkles size={12} /> word of the day</span><div className="decor decor-one">✦</div><div className="decor decor-two">✳</div></div><button className={`hero-save ${favorites.some((w) => w.word.toLowerCase() === dailyWord.word.toLowerCase()) ? 'saved' : ''}`} title="Save daily word" onClick={async () => { const w = words.find((item) => item.word.toLowerCase() === dailyWord.word.toLowerCase()) || await database.saveWord(dailyWord); if (favorites.some((item) => item.id === w.id)) await database.removeFavorite(w.id); else await database.addFavorite(w.id); await refresh(); }}><Bookmark size={18} /></button></section>
         <div className="stat-grid"><Stat icon={BookOpen} label="Words learned" value={words.length} note="in your collection" tone="purple" /><Stat icon={Target} label="Daily challenges" value={`${dailyChallengesRemainingToday} / ${DAILY_CHALLENGES_PER_DAY}`} note="challenges left today; 10 questions each" tone="mint" /><Stat icon={Trophy} label="Quiz accuracy" value={`${history.length ? Math.round(history.reduce((n, q) => n + (q.total ? q.score / q.total : 0), 0) / history.length * 100) : 0}%`} note={`${history.length} quizzes completed`} tone="peach" /></div>
         <div className="dashboard-grid"><section className="panel relationship"><PanelHead title="Words around you" caption="Synonyms and opposites" action="Explore all" onAction={() => setPage('explore')} /><div className="relationship-map"><div className="map-word">{dailyWord.word}</div><span className="map-line line-a"/><span className="map-line line-b"/><span className="map-line line-c"/><span className="map-line line-d"/><span className="map-node node-a">{wordMapLabels[0]}</span><span className="map-node node-b">{wordMapLabels[1]}</span><span className="map-node node-c">{wordMapLabels[2]}</span><span className="map-node node-d">{wordMapLabels[3]}</span><span className="map-spark">✳</span></div><div className="map-footer"><span>Synonyms &amp; related ideas</span><button onClick={() => setSelected(dailyWord)}>Explore daily word <ArrowRight size={14} /></button></div></section>

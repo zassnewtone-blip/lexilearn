@@ -302,3 +302,9 @@ html.high-contrast[data-theme="dark"] .mode-option.active{background:#6d5aa7;col
 .quiz-back:focus-visible{outline:3px solid var(--lav);outline-offset:3px}
 html[data-theme="dark"] .quiz-back{background:#211f2d;border-color:#625c75;color:#f0ecf8}
 html.high-contrast .quiz-back{border-width:2px}
+
+.search-popover .search-lookup{display:flex;align-items:center;gap:9px;width:100%;padding:12px 15px;border:0;border-top:1px solid var(--line);background:var(--lav-soft);color:var(--lav-deep);font-weight:700;text-align:left;cursor:pointer}
+.search-popover .search-lookup:hover{background:#e7e2f6}
+.search-popover .search-lookup:disabled{cursor:progress}
+html[data-theme="dark"] .search-popover .search-lookup{background:#39344e;border-color:#4c475d;color:#ded6ff}
+html.high-contrast .search-popover .search-lookup{border-top-width:2px}

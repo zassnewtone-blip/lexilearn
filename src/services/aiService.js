@@ -34,6 +34,7 @@ function normalizeVocabulary(result) {
 export async function generateVocabulary(topic, existingWords = []) {
   return normalizeVocabulary(await request('/ai/vocabulary', { topic, existingWords }));
 }
+export const lookupWord = (word) => request('/ai/word', { word });
 export const generateDailyWord = (existingWords = [], date = new Date().toISOString().slice(0, 10)) => request('/ai/daily-word', { existingWords, date });
 export const generateSynonyms = (word, definition) => request('/ai/synonyms', { word, definition });
 export const generateAntonyms = (word, definition) => request('/ai/antonyms', { word, definition });
