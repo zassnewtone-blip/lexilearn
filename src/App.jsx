@@ -7,6 +7,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as database from './database/database.js';
 import * as ai from './services/aiService.js';
@@ -53,6 +54,36 @@ export default function App() {
   const loadedDailyDateRef = useRef('');
   const navigationRef = useRef({ selected: null, page: 'home' });
   navigationRef.current = { selected, page };
+
+  async function speak(word) {
+    const text = String(word || '').trim();
+    if (!text) return;
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await TextToSpeech.stop();
+        const language = await TextToSpeech.isLanguageSupported({ lang: 'en-US' });
+        if (!language.supported) {
+          await TextToSpeech.openInstall();
+          setNotice('Install English text-to-speech voice data on Android, then try again.');
+          return;
+        }
+        await TextToSpeech.speak({ text, lang: 'en-US', rate: 0.9, pitch: 1, volume: 1 });
+        return;
+      }
+      if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+        setNotice('Speech playback is not available in this browser.');
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.9;
+      utterance.onerror = () => setNotice('Could not play this pronunciation. Check your device audio settings.');
+      window.speechSynthesis.speak(utterance);
+    } catch (error) {
+      setNotice(error.message || 'Could not play this pronunciation. Check your Android text-to-speech settings.');
+    }
+  }
 
   async function refresh() {
     const [all, fav, quizzes, prefs] = await Promise.all([database.getAllWords(), database.getFavorites(), database.getQuizHistory(), database.getSettings()]);
@@ -246,7 +277,6 @@ function Stat({ icon: Icon, label, value, note, tone }) { return <div className=
 function PanelHead({ title, caption, action, onAction }) { return <div className="panel-head"><div><h3>{title}</h3><span>{caption}</span></div>{action && <button onClick={onAction}>{action}<ArrowRight size={14}/></button>}</div>; }
 function WordCard({ word, favorite, onFavorite, onOpen }) { return <article className="word-card"><div className="word-card-top"><span className="word-initial large">{word.word[0]?.toUpperCase()}</span><button className={`favorite-button ${favorite ? 'is-favorite' : ''}`} onClick={onFavorite} aria-label={favorite ? 'Remove favorite' : 'Add favorite'}><Heart size={18} fill={favorite ? 'currentColor' : 'none'}/></button></div><button className="word-card-title" onClick={onOpen}>{word.word}<span>{word.partOfSpeech || 'word'}</span></button><p>{word.definition || 'A word in your collection.'}</p><div className="word-card-bottom"><span>{word.examples?.length || 0} examples</span><button onClick={onOpen}>Details <ChevronRight size={15}/></button></div></article>; }
 function EmptyState({ icon: Icon, title, body, button, onClick }) { return <div className="empty-state"><div><Icon size={24}/></div><h3>{title}</h3><p>{body}</p><button className="button button-primary" onClick={onClick}><Sparkles size={16}/>{button}</button></div>; }
-function speak(word) { if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); window.speechSynthesis.speak(new SpeechSynthesisUtterance(word)); } }
 function hasValidQuizQuestions(questions) {
   return Array.isArray(questions) && questions.length > 0 && questions.every((item) => typeof item?.question === 'string' && item.question.trim() && Array.isArray(item.options) && item.options.length >= 2 && item.options.includes(item.answer));
 }
