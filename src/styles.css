@@ -296,3 +296,9 @@ html.high-contrast[data-theme="dark"] .today-chip{background:#d9d2ec;color:#211b
 html.high-contrast[data-theme="dark"] .float-tag{background:#fff;border-color:#898397;color:#211b32}
 html.high-contrast[data-theme="dark"] .mode-option{color:#f1edf8}
 html.high-contrast[data-theme="dark"] .mode-option.active{background:#6d5aa7;color:#fff}
+
+.quiz-back{display:inline-flex;align-items:center;gap:8px;margin:0 0 20px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font:inherit;font-weight:600;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease}
+.quiz-back:hover{background:var(--page);border-color:var(--lav);transform:translateX(-2px)}
+.quiz-back:focus-visible{outline:3px solid var(--lav);outline-offset:3px}
+html[data-theme="dark"] .quiz-back{background:#211f2d;border-color:#625c75;color:#f0ecf8}
+html.high-contrast .quiz-back{border-width:2px}
